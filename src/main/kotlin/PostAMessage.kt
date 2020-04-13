@@ -1,30 +1,41 @@
 package com.robbiebowman.slackapp
 
-import com.hubspot.algebra.Result
+import com.hubspot.horizon.shaded.org.jboss.netty.channel.ChannelEvent
+import com.hubspot.horizon.shaded.org.jboss.netty.channel.DownstreamMessageEvent
 import com.hubspot.slack.client.SlackClient
+import com.hubspot.slack.client.methods.params.channels.ChannelsFilter
 import com.hubspot.slack.client.methods.params.chat.ChatPostMessageParams
-import com.hubspot.slack.client.models.response.SlackError
 import com.hubspot.slack.client.models.response.chat.ChatPostMessageResponse
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.jsoup.Jsoup
+
 
 object PostAMessage {
     private val LOG = LoggerFactory.getLogger(PostAMessage::class.java)
 
     @JvmStatic
     fun main(args: Array<String>) {
-        println(System.getenv("SLACK_BOT_AUTH_TOKEN"))
-
         val client = BasicRuntimeConfig.client
 
-        val response = messageChannel("bot_test", client)
+        val response = messageChannel(client, "bot_test", randomWikiFact())
         LOG.info("Got: {}", response)
     }
 
-    fun messageChannel(channelToPostIn: String, slackClient: SlackClient): ChatPostMessageResponse {
+    fun randomWikiFact(): String {
+        val randomArticle = Jsoup.connect("https://en.wikipedia.org/wiki/Special:Random").get()
+
+        val headline = randomArticle.select("#firstHeading")
+        val paragraphs = randomArticle.select(".mw-parser-output > p")
+
+        println(headline.text())
+        return paragraphs.first { !it.text().isBlank() }.text()
+                .replace(Regex("\\[[\\d\\w]+]"), "")
+    }
+
+    fun messageChannel(slackClient: SlackClient, channelToPostIn: String, message: String): ChatPostMessageResponse {
         val postResult = slackClient.postMessage(
                 ChatPostMessageParams.builder()
-                        .setText("Hello, world!")
+                        .setText(message)
                         .setChannelId(channelToPostIn)
                         .build()
         ).join()
